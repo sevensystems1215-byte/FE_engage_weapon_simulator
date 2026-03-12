@@ -74,9 +74,9 @@ select:focus{border-color:var(--accent);}
 .wlv-badge.up{border-color:var(--green);color:var(--green);}
 .cost-total{font-size:10px;color:var(--gold);text-align:right;margin-top:4px;font-weight:600;}
 .btn-done{border:none;padding:2px 8px;font-size:9px;font-weight:700;border-radius:4px;cursor:pointer;font-family:inherit;
-  background:var(--surface);color:var(--muted);border:1px solid var(--border);transition:all .15s;white-space:nowrap;}
-.btn-done:hover{border-color:var(--green);color:var(--green);}
-.btn-done.done{background:rgba(78,201,138,.15);color:var(--green);border-color:var(--green);}
+  background:rgba(232,164,75,.1);color:var(--accent2);border:1px solid rgba(232,164,75,.4);transition:all .15s;white-space:nowrap;}
+.btn-done:hover{background:rgba(232,164,75,.2);border-color:var(--accent2);}
+.btn-done.done{background:rgba(232,164,75,.25);color:var(--accent2);border-color:var(--accent2);opacity:.5;}
 @media(max-width:860px){#roster-area{grid-template-columns:1fr;}}
 .save-area{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .btn-act{border:none;padding:5px 12px;font-size:11px;font-weight:600;border-radius:5px;cursor:pointer;font-family:inherit;transition:all .15s;}
@@ -190,7 +190,7 @@ window.onload=function(){
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin:0 0 6px 18px;">
         <button class="btn-done" id="dn-${i}-${s}" onclick="toggleDone(${i},${s})">強化完了</button>
-        <span class="mat-inline" id="mi-${i}-${s}" style="font-size:9px;color:var(--muted);"></span>
+        <span class="mat-inline" id="mi-${i}-${s}" style="font-size:9px;color:var(--accent2);"></span>
       </div>
       <div class="wcard" id="wc-${i}-${s}"></div>`;
     }
@@ -469,7 +469,7 @@ function updateCard(ci,si){
     <div class="wc-top">
       <span class="wc-name${sealData?(isTempSeal?' temp-sealed':' sealed'):''}">${wname}</span>${rlv?`<span class="wc-refine">${rlv}</span>`:''}
       <span class="wc-lv">${base.lv}級</span>
-      ${matStr}${costStr}${sealBadge}
+      ${sealBadge}
     </div>
     <div class="wc-bottom">${statsHtml}${base.desc?`<span class="wc-desc-inline">${base.desc}</span>`:''}</div>`;
 
@@ -527,9 +527,11 @@ function updateMatBar(){
       if(m.steel>0) parts.push(`はがね${m.steel}`);
       if(m.silver>0) parts.push(`ぎん${m.silver}`);
       parts.push(`銀換算${m.score}`);
+      if(m.cost>0) parts.push(`${m.cost}G`);
       mi.textContent=parts.join(' ');
       mi.style.textDecoration=done?'line-through':'none';
-      mi.style.opacity=done?'0.4':'1';
+      mi.style.opacity=done?'0.35':'1';
+      mi.style.color=done?'var(--muted)':'var(--accent2)';
     }
     if(!done){
       remIron+=m.iron; remSteel+=m.steel; remSilver+=m.silver;
