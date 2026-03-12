@@ -10,6 +10,7 @@
   --bg:#0f1117;--surface:#181b24;--card:#1e2130;--border:#2a2f42;
   --border-bright:#3d4560;--text:#e8eaf2;--muted:#7a80a0;--faint:#3a4060;
   --accent:#5b8dee;--accent2:#e8a44b;--red:#e05c6a;--green:#4ec98a;--gold:#f0c040;--r:8px;
+  --wc-bg:#2c2f3a;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:12px;line-height:1.5;min-height:100vh;
@@ -42,11 +43,13 @@ select:focus{border-color:var(--accent);}
 .slot-weapon{flex:1;min-width:0;font-size:10px;}
 .slot-refine{width:76px;flex-shrink:0;font-size:10px;}
 /* Weapon detail card — compact */
-.wcard{margin:0 0 4px 18px;background:var(--surface);border:1px solid var(--border);border-radius:5px;
+.wcard{margin:0 0 4px 18px;background:var(--wc-bg);border:1px solid var(--border);border-radius:5px;
   padding:4px 8px;display:none;}
 .wcard.vis{display:block;}
 .wc-top{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;flex-wrap:wrap;}
 .wc-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--accent2);}
+.wc-name.sealed{color:var(--red);}
+.wc-name.temp-sealed{color:var(--accent);}
 .wc-refine{font-size:11px;color:var(--green);font-weight:700;}
 .wc-mat{color:var(--gold);font-size:9px;}
 .wc-cost{color:var(--gold);font-size:9px;}
@@ -61,9 +64,10 @@ select:focus{border-color:var(--accent);}
   font-family:'Rajdhani',sans-serif;font-weight:700;font-size:9px;}
 .slot-seal{width:80px;flex-shrink:0;font-size:10px;}
 .slot-seal.dup{border-color:var(--red)!important;color:var(--red)!important;background:rgba(224,92,106,.12)!important;}
-.wc-seal{display:inline-flex;align-items:center;gap:3px;font-size:9px;background:rgba(240,192,64,.1);
-  border:1px solid rgba(240,192,64,.4);border-radius:3px;padding:1px 5px;color:var(--gold);margin-left:4px;}
-.wc-seal.dup{background:rgba(224,92,106,.15);border-color:var(--red);color:var(--red);}
+.slot-seal.temp{border-color:var(--accent)!important;color:var(--accent)!important;background:rgba(91,141,238,.12)!important;}
+.wc-seal{display:inline-flex;align-items:center;gap:3px;font-size:9px;background:rgba(224,92,106,.15);
+  border:1px solid rgba(224,92,106,.5);border-radius:3px;padding:1px 5px;color:var(--red);margin-left:4px;}
+.wc-seal.temp{background:rgba(91,141,238,.15);border-color:var(--accent);color:var(--accent);}
 
 .wlv-badge{display:inline-flex;align-items:center;gap:2px;font-size:9px;padding:1px 5px;border-radius:3px;
   background:var(--surface);border:1px solid var(--border);margin-right:3px;margin-bottom:2px;}
@@ -91,7 +95,14 @@ select:focus{border-color:var(--accent);}
     <button class="btn-act btn-save" onclick="localSave()">新規保存</button>
     <button class="btn-act btn-overwrite" onclick="localOverwrite()">上書き</button>
     <button class="btn-act btn-del" onclick="localDelete()">削除</button>
+    <span style="color:var(--border);margin:0 2px;">│</span>
+    <button class="btn-act" onclick="generateShareLink()" style="background:#0f2a1a;color:#4ec98a;border:1px solid #1a5c30;">共有リンク</button>
   </div>
+</div>
+
+<div id="seal-bar" style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:11px;min-height:36px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+  <span style="font-size:9px;font-weight:700;color:#a1a1aa;letter-spacing:.08em;text-transform:uppercase;margin-right:4px;white-space:nowrap;">未使用刻印</span>
+  <span id="seal-bar-body" style="display:flex;flex-wrap:wrap;gap:4px;"></span>
 </div>
 
 <div id="roster-area"></div>
@@ -166,6 +177,7 @@ window.onload=function(){
         <select class="slot-weapon" id="wp-${i}-${s}" onchange="onWpChange(${i},${s})"><option value="">武器</option></select>
         <select class="slot-refine" id="rf-${i}-${s}" onchange="updateCard(${i},${s})"><option value="">未強化</option></select>
         <select class="slot-seal" id="sl-${i}-${s}" onchange="onSealChange(${i},${s})"><option value="">刻印なし</option></select>
+        <label title="暫定刻印（重複チェックをすり抜ける）" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;"><input type="checkbox" id="st-${i}-${s}" onchange="onSealChange(${i},${s})" style="width:10px;height:10px;accent-color:var(--accent);">暫定</label>
       </div>
       <div class="wcard" id="wc-${i}-${s}"></div>`;
     }
@@ -191,6 +203,8 @@ window.onload=function(){
     document.getElementById(`sl-${i}-${s}`).innerHTML=sealOpts;
   }
   refreshSaveList();
+  checkSealDups();
+  loadFromURL();
 };
 
 function filterCls(ci){
@@ -303,24 +317,56 @@ function onWpChange(ci,si){
 }
 
 function onSealChange(ci,si){
+  let sel=document.getElementById(`sl-${ci}-${si}`);
+  let stEl=document.getElementById(`st-${ci}-${si}`);
+  let isTemp=stEl?stEl.checked:false;
+  if(isTemp){ sel.classList.add('temp'); sel.classList.remove('dup'); }
+  else { sel.classList.remove('temp'); }
   checkSealDups();
   updateCard(ci,si);
 }
 
 // 全ユニット×スロットの刻印重複チェック → 2箇所以上同じ紋章士が選ばれたら赤く警告
 function checkSealDups(){
-  // 集計
+  // 集計（暫定チェック済みスロットは除外）
   let counts={};
   for(let i=0;i<MAX_CHARS;i++) for(let s=0;s<SLOTS;s++){
-    let v=document.getElementById(`sl-${i}-${s}`).value;
-    if(v) counts[v]=(counts[v]||0)+1;
+    let stEl=document.getElementById(`st-${i}-${s}`);
+    let isTemp=stEl?stEl.checked:false;
+    let slEl=document.getElementById(`sl-${i}-${s}`);
+    let v=slEl?slEl.value:'';
+    if(v&&!isTemp) counts[v]=(counts[v]||0)+1;
   }
-  // セレクトに色付け
+  // セレクトに色付け（tempは青を維持、非tempのみdup判定）
   for(let i=0;i<MAX_CHARS;i++) for(let s=0;s<SLOTS;s++){
     let sel=document.getElementById(`sl-${i}-${s}`);
+    if(!sel) continue;
+    let stEl=document.getElementById(`st-${i}-${s}`);
+    let isTemp=stEl?stEl.checked:false;
+    if(isTemp){ sel.classList.add('temp'); sel.classList.remove('dup'); continue; }
     let v=sel.value;
     if(v&&counts[v]>1) sel.classList.add('dup');
     else sel.classList.remove('dup');
+  }
+  // 未使用刻印バー更新
+  let body=document.getElementById('seal-bar-body');
+  let usedSet=new Set(Object.keys(counts));
+  let unused=sealDB.filter(s=>!usedSet.has(s.short));
+  if(unused.length===0){
+    body.innerHTML='<span style="color:#a1a1aa;font-size:10px;">すべて使用中</span>';
+  } else {
+    body.innerHTML=unused.map(s=>{
+      let sign=v=>v>0?`+${v}`:v<0?`${v}`:'';
+      let parts=[];
+      if(s.atk)  parts.push(`威力${sign(s.atk)}`);
+      if(s.hit)  parts.push(`命中${sign(s.hit)}`);
+      if(s.crit) parts.push(`必殺${sign(s.crit)}`);
+      if(s.wt)   parts.push(`重さ${sign(s.wt)}`);
+      if(s.avo)  parts.push(`回避${sign(s.avo)}`);
+      if(s.cavo) parts.push(`必避${sign(s.cavo)}`);
+      let tip=parts.join(' ');
+      return `<span title="${s.name}&#10;${tip}" style="display:inline-flex;align-items:center;gap:3px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:600;color:#3f3f46;cursor:default;white-space:nowrap;">${s.short}</span>`;
+    }).join('');
   }
 }
 
@@ -399,12 +445,15 @@ function updateCard(ci,si){
     matStr=`<span class="wc-mat">${parts.join(' ')}（銀換算${sc}）</span>`;
   }
   let costStr=rlv&&refineCost?`<span class="wc-cost">錬成${refineCost}G</span>`:'';
-  let sealBadge=sealData?`<span class="wc-seal${isDupSeal?' dup':''}" title="${sealData.name}">刻印:${sealShort}${isDupSeal?' ⚠重複':''}</span>`:'';
+  let stEl2=document.getElementById(`st-${ci}-${si}`);
+  let isTempSeal=sealShort&&(stEl2?stEl2.checked:false);
+  let sealClass=isDupSeal?' dup':isTempSeal?' temp':'';
+  let sealBadge=sealData?`<span class="wc-seal${sealClass}" title="${sealData.name}">刻印:${sealShort}${isDupSeal?' ⚠重複':isTempSeal?' 暫定':''}</span>`:'';
 
   card.classList.add('vis');
   card.innerHTML=`
     <div class="wc-top">
-      <span class="wc-name">${wname}</span>${rlv?`<span class="wc-refine">${rlv}</span>`:''}
+      <span class="wc-name${sealData?(isTempSeal?' temp-sealed':' sealed'):''}">${wname}</span>${rlv?`<span class="wc-refine">${rlv}</span>`:''}
       <span class="wc-lv">${base.lv}級</span>
       ${matStr}${costStr}${sealBadge}
     </div>
@@ -418,6 +467,94 @@ function updateCost(ci){} // 削除済みUIのためno-op
 function updateSummary(){} // 削除済みUIのためno-op
 
 // ===== セーブ/ロード =====
+// ===== URL共有 =====
+function generateShareLink(){
+  try{
+    let data=gatherData();
+    // 空ユニットを除いてコンパクト化
+    let compact=data.map((d,i)=>{
+      if(!d.cn) return null;
+      let o={i,cn:d.cn};
+      if(d.cc) o.cc=d.cc;
+      if(d.cl) o.cl=d.cl;
+      let slots=d.slots.filter(s=>s.wt||s.wp);
+      if(slots.length) o.s=slots.map(s=>{
+        let x={};
+        if(s.wt) x.wt=s.wt;
+        if(s.wp) x.wp=s.wp;
+        if(s.rf) x.rf=s.rf;
+        if(s.sl) x.sl=s.sl;
+        if(s.st) x.st=1;
+        return x;
+      });
+      return o;
+    }).filter(Boolean);
+    if(!compact.length){alert('キャラが1体も設定されていません。');return;}
+    let json=JSON.stringify(compact);
+    let encoded=encodeURIComponent(json);
+    let base=location.href.split('#')[0].split('?')[0];
+    let url=base+'?d='+encoded;
+    showCopyDialog(url);
+  }catch(e){alert('エラー: '+e.message);}
+}
+
+function showCopyDialog(url){
+  let overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  let box=document.createElement('div');
+  box.style.cssText='background:#1e2130;border:1px solid #3d4560;border-radius:12px;padding:20px;max-width:520px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4);';
+  box.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:6px;color:#e8eaf2;">共有リンク</div>'
+    +'<div style="font-size:11px;color:#7a80a0;margin-bottom:12px;">このURLを別のデバイスで開くと同じ編成が復元されます。</div>'
+    +'<textarea id="share-url-box" readonly style="width:100%;height:80px;font-size:11px;padding:8px;border:1px solid #3d4560;border-radius:6px;resize:none;font-family:monospace;word-break:break-all;background:#0f1117;color:#e8eaf2;outline:none;"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button id="share-copy-btn" style="flex:1;padding:8px;background:#4ec98a;color:#0f1117;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">コピー</button>'
+    +'<button id="share-close-btn" style="flex:1;padding:8px;background:#2a2f42;color:#e8eaf2;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">閉じる</button>'
+    +'</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  let ta=document.getElementById('share-url-box');
+  ta.value=url; ta.select();
+  document.getElementById('share-copy-btn').addEventListener('click',function(){
+    ta.select(); ta.setSelectionRange(0,99999);
+    let ok=false;
+    try{ok=document.execCommand('copy');}catch(e){}
+    if(!ok&&navigator.clipboard){
+      navigator.clipboard.writeText(url).then(()=>{
+        this.textContent='✓ コピー完了'; setTimeout(()=>{this.textContent='コピー';},1500);
+      }).catch(()=>{alert('手動でコピーしてください。');});
+    } else {
+      this.textContent='✓ コピー完了'; setTimeout(()=>{this.textContent='コピー';},1500);
+    }
+  });
+  document.getElementById('share-close-btn').addEventListener('click',()=>overlay.remove());
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+}
+
+function loadFromURL(){
+  let params=new URLSearchParams(location.search);
+  let encoded=params.get('d');
+  if(!encoded) return;
+  try{
+    let compact=JSON.parse(decodeURIComponent(encoded));
+    if(!Array.isArray(compact)) return;
+    // 空の全体配列を用意してコンパクトデータを展開
+    let full=Array.from({length:MAX_CHARS},()=>({cn:'',cc:'',cl:'',slots:Array.from({length:SLOTS},()=>({wt:'',wp:'',rf:'',sl:'',st:false}))}));
+    compact.forEach(d=>{
+      let i=d.i;
+      if(i<0||i>=MAX_CHARS) return;
+      full[i].cn=d.cn||'';
+      full[i].cc=d.cc||'';
+      full[i].cl=d.cl||'';
+      (d.s||[]).forEach((x,s)=>{
+        if(s>=SLOTS) return;
+        full[i].slots[s]={wt:x.wt||'',wp:x.wp||'',rf:x.rf||'',sl:x.sl||'',st:!!x.st};
+      });
+    });
+    applyData(full);
+    history.replaceState(null,'',location.pathname);
+  }catch(e){console.error('URL読込エラー:',e);}
+}
+
 const LOCAL_INDEX_KEY='FE_Weapon_SaveIndex';
 function getSaveIndex(){try{return JSON.parse(localStorage.getItem(LOCAL_INDEX_KEY))||[];}catch{return [];}}
 function setSaveIndex(idx){localStorage.setItem(LOCAL_INDEX_KEY,JSON.stringify(idx));}
@@ -448,6 +585,7 @@ function gatherData(){
         wp:document.getElementById(`wp-${i}-${s}`).value,
         rf:document.getElementById(`rf-${i}-${s}`).value,
         sl:document.getElementById(`sl-${i}-${s}`).value,
+            st:document.getElementById(`st-${i}-${s}`).checked,
       });
     }
     arr.push(d);
@@ -470,6 +608,7 @@ function applyData(arr){
       onWpChange(i,s);
       document.getElementById(`rf-${i}-${s}`).value=sl.rf||'';
       document.getElementById(`sl-${i}-${s}`).value=sl.sl||'';
+      document.getElementById(`st-${i}-${s}`).checked=sl.st||false;
       updateCard(i,s);
     });
   }
