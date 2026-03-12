@@ -73,6 +73,10 @@ select:focus{border-color:var(--accent);}
   background:var(--surface);border:1px solid var(--border);margin-right:3px;margin-bottom:2px;}
 .wlv-badge.up{border-color:var(--green);color:var(--green);}
 .cost-total{font-size:10px;color:var(--gold);text-align:right;margin-top:4px;font-weight:600;}
+.btn-done{border:none;padding:2px 8px;font-size:9px;font-weight:700;border-radius:4px;cursor:pointer;font-family:inherit;
+  background:var(--surface);color:var(--muted);border:1px solid var(--border);transition:all .15s;white-space:nowrap;}
+.btn-done:hover{border-color:var(--green);color:var(--green);}
+.btn-done.done{background:rgba(78,201,138,.15);color:var(--green);border-color:var(--green);}
 @media(max-width:860px){#roster-area{grid-template-columns:1fr;}}
 .save-area{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .btn-act{border:none;padding:5px 12px;font-size:11px;font-weight:600;border-radius:5px;cursor:pointer;font-family:inherit;transition:all .15s;}
@@ -100,9 +104,14 @@ select:focus{border-color:var(--accent);}
   </div>
 </div>
 
-<div id="seal-bar" style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:11px;min-height:36px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-  <span style="font-size:9px;font-weight:700;color:#a1a1aa;letter-spacing:.08em;text-transform:uppercase;margin-right:4px;white-space:nowrap;">未使用刻印</span>
-  <span id="seal-bar-body" style="display:flex;flex-wrap:wrap;gap:4px;"></span>
+<div id="seal-bar" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:8px 14px;margin:10px 16px 8px;font-size:11px;display:flex;flex-direction:column;gap:6px;">
+  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:24px;">
+    <span style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-right:4px;white-space:nowrap;">未使用刻印</span>
+    <span id="seal-bar-body" style="display:flex;flex-wrap:wrap;gap:4px;"></span>
+  </div>
+  <div id="seal-mat-display" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding-top:5px;border-top:1px solid var(--border);min-height:22px;">
+    <span style="color:var(--muted);font-size:10px;">錬成なし</span>
+  </div>
 </div>
 
 <div id="roster-area"></div>
@@ -179,6 +188,10 @@ window.onload=function(){
         <select class="slot-seal" id="sl-${i}-${s}" onchange="onSealChange(${i},${s})"><option value="">刻印なし</option></select>
         <label title="暫定刻印（重複チェックをすり抜ける）" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;"><input type="checkbox" id="st-${i}-${s}" onchange="onSealChange(${i},${s})" style="width:10px;height:10px;accent-color:var(--accent);">暫定</label>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;margin:0 0 6px 18px;">
+        <button class="btn-done" id="dn-${i}-${s}" onclick="toggleDone(${i},${s})">強化完了</button>
+        <span class="mat-inline" id="mi-${i}-${s}" style="font-size:9px;color:var(--muted);"></span>
+      </div>
       <div class="wcard" id="wc-${i}-${s}"></div>`;
     }
     area.innerHTML+=`
@@ -204,6 +217,7 @@ window.onload=function(){
   }
   refreshSaveList();
   checkSealDups();
+  updateMatBar();
   loadFromURL();
 };
 
@@ -459,7 +473,7 @@ function updateCard(ci,si){
     </div>
     <div class="wc-bottom">${statsHtml}${base.desc?`<span class="wc-desc-inline">${base.desc}</span>`:''}</div>`;
 
-  updateCost(ci);updateSummary();
+  updateCost(ci);updateSummary();updateMatBar();
 }
 
 function updateCost(ci){} // 削除済みUIのためno-op
@@ -467,6 +481,88 @@ function updateCost(ci){} // 削除済みUIのためno-op
 function updateSummary(){} // 削除済みUIのためno-op
 
 // ===== セーブ/ロード =====
+// ===== 強化完了トグル =====
+function toggleDone(ci,si){
+  let btn=document.getElementById(`dn-${ci}-${si}`);
+  btn.classList.toggle('done');
+  updateMatBar();
+}
+
+// ===== 素材集計バー =====
+function calcSlotMat(ci,si){
+  // 指定スロットの素材(iron,steel,silver,score,cost)を返す
+  let wt=document.getElementById(`wt-${ci}-${si}`).value;
+  let wp=document.getElementById(`wp-${ci}-${si}`).value;
+  let rlv=document.getElementById(`rf-${ci}-${si}`).value;
+  if(!wt||!wp||!rlv) return null;
+  let wbase=(weaponBase[wt]||[]).find(w=>w.name===wp);
+  if(!wbase) return null;
+  let iron=0,steel=0,silver=0,score=0,cost=0;
+  const allLvls=['+1','+2','+3','+4','+5'];
+  let ti=allLvls.indexOf(rlv);
+  if(ti<0||!refineData[wp]) return null;
+  for(let ri=0;ri<=ti;ri++){
+    let r=refineData[wp].find(x=>x.level===allLvls[ri]);
+    if(!r) continue;
+    iron+=(r.iron||0); steel+=(r.steel||0); silver+=(r.silver||0);
+    score+=(r.silverScore||0); cost+=(r.cost||0);
+  }
+  return {iron,steel,silver,score:Math.round(score*100)/100,cost};
+}
+
+function updateMatBar(){
+  let totalIron=0,totalSteel=0,totalSilver=0,totalScore=0,totalCost=0;
+  let remIron=0,remSteel=0,remSilver=0,remScore=0,remCost=0;
+  for(let i=0;i<MAX_CHARS;i++) for(let s=0;s<SLOTS;s++){
+    let m=calcSlotMat(i,s);
+    if(!m) continue;
+    totalIron+=m.iron; totalSteel+=m.steel; totalSilver+=m.silver;
+    totalScore+=m.score; totalCost+=m.cost;
+    let done=document.getElementById(`dn-${i}-${s}`).classList.contains('done');
+    // mat-inline 表示更新
+    let mi=document.getElementById(`mi-${i}-${s}`);
+    if(mi){
+      let parts=[];
+      if(m.iron>0) parts.push(`てつ${m.iron}`);
+      if(m.steel>0) parts.push(`はがね${m.steel}`);
+      if(m.silver>0) parts.push(`ぎん${m.silver}`);
+      parts.push(`銀換算${m.score}`);
+      mi.textContent=parts.join(' ');
+      mi.style.textDecoration=done?'line-through':'none';
+      mi.style.opacity=done?'0.4':'1';
+    }
+    if(!done){
+      remIron+=m.iron; remSteel+=m.steel; remSilver+=m.silver;
+      remScore+=m.score; remCost+=m.cost;
+    }
+  }
+  totalScore=Math.round(totalScore*100)/100;
+  remScore=Math.round(remScore*100)/100;
+
+  // seal-bar の素材表示更新
+  let matEl=document.getElementById('seal-mat-display');
+  if(!matEl) return;
+  if(totalScore===0){
+    matEl.innerHTML='<span style="color:var(--muted);font-size:10px;">錬成なし</span>';
+    return;
+  }
+  let allDone=(remScore===0);
+  // 残 / 全
+  let remParts=[], totParts=[];
+  if(remIron>0||totalIron>0) remParts.push(`てつ${remIron}`), totParts.push(`てつ${totalIron}`);
+  if(remSteel>0||totalSteel>0) remParts.push(`はがね${remSteel}`), totParts.push(`はがね${totalSteel}`);
+  if(remSilver>0||totalSilver>0) remParts.push(`ぎん${remSilver}`), totParts.push(`ぎん${totalSilver}`);
+  let remStr=remParts.join(' ')+`　<span style="font-weight:700;color:${allDone?'var(--green)':'var(--accent2)'};">銀換算${remScore}</span>`;
+  let totStr=totParts.join(' ')+`　銀換算${totalScore}`;
+  matEl.innerHTML=`
+    <span style="font-size:9px;font-weight:700;color:var(--muted);margin-right:4px;white-space:nowrap;">必要素材</span>
+    <span style="font-size:10px;color:var(--text);">${remStr}</span>
+    <span style="color:var(--border);margin:0 5px;">/</span>
+    <span style="font-size:10px;color:var(--muted);">${totStr}</span>
+    ${remCost?`<span style="font-size:10px;color:var(--gold);margin-left:6px;">残コスト${remCost}G</span>`:''}
+    ${allDone?'<span style="color:var(--green);font-size:10px;margin-left:6px;">✓ 全強化完了</span>':''}`;
+}
+
 // ===== URL共有 =====
 function generateShareLink(){
   try{
@@ -485,6 +581,7 @@ function generateShareLink(){
         if(s.rf) x.rf=s.rf;
         if(s.sl) x.sl=s.sl;
         if(s.st) x.st=1;
+        if(s.dn) x.dn=1;
         return x;
       });
       return o;
@@ -547,7 +644,7 @@ function loadFromURL(){
       full[i].cl=d.cl||'';
       (d.s||[]).forEach((x,s)=>{
         if(s>=SLOTS) return;
-        full[i].slots[s]={wt:x.wt||'',wp:x.wp||'',rf:x.rf||'',sl:x.sl||'',st:!!x.st};
+        full[i].slots[s]={wt:x.wt||'',wp:x.wp||'',rf:x.rf||'',sl:x.sl||'',st:!!x.st,dn:!!x.dn};
       });
     });
     applyData(full);
@@ -586,6 +683,7 @@ function gatherData(){
         rf:document.getElementById(`rf-${i}-${s}`).value,
         sl:document.getElementById(`sl-${i}-${s}`).value,
             st:document.getElementById(`st-${i}-${s}`).checked,
+            dn:document.getElementById(`dn-${i}-${s}`).classList.contains('done'),
       });
     }
     arr.push(d);
@@ -609,6 +707,8 @@ function applyData(arr){
       document.getElementById(`rf-${i}-${s}`).value=sl.rf||'';
       document.getElementById(`sl-${i}-${s}`).value=sl.sl||'';
       document.getElementById(`st-${i}-${s}`).checked=sl.st||false;
+      let dnBtn=document.getElementById(`dn-${i}-${s}`);
+      if(sl.dn) dnBtn.classList.add('done'); else dnBtn.classList.remove('done');
       updateCard(i,s);
     });
   }
