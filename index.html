@@ -68,7 +68,7 @@ select:focus{border-color:var(--accent);}
 /* スロットブロック */
 .slot-block{border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:6px;transition:border-color .2s,background .2s;}
 .slot-block:has(.wcard.vis){border-color:var(--border-bright);}
-.slot-block.done-block{border-color:rgba(232,164,75,.35);background:rgba(232,164,75,.04);}
+.slot-block.done-block{border-color:#1a5050;background:#0e1e20;}
 .slot-bottom{display:flex;align-items:center;gap:6px;margin-top:4px;}
 .slot-row{margin-bottom:0;}
 /* 文字色改善 */
@@ -79,9 +79,17 @@ select:focus{border-color:var(--accent);}
 .wc-desc-inline{font-size:9px;color:#9098b8;margin-left:2px;}
 .wc-lv{background:var(--faint);color:#c8cce0;border-radius:3px;padding:1px 5px;
   font-family:'Rajdhani',sans-serif;font-weight:700;font-size:9px;}
-/* wc-name moved below */
-/* 強化完了で wcard を薄く */
-.slot-block.done-block .wcard{opacity:.45;}
+.wc-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;color:#f5c060;letter-spacing:.02em;}
+.wc-name.sealed{color:var(--red);}
+.wc-name.temp-sealed{color:var(--accent);}
+/* 強化完了で wcard を別色に */
+.slot-block.done-block .wcard{opacity:1;background:#122828;border-color:#1a5050;}
+
+
+
+
+
+
 .mat-inline{font-size:9px;color:var(--accent2);}
 .mat-inline.done-mat{color:var(--muted);text-decoration:line-through;opacity:.5;}
 .btn-done{border:none;padding:2px 8px;font-size:9px;font-weight:700;border-radius:4px;cursor:pointer;font-family:inherit;
@@ -155,7 +163,7 @@ const sealDB=[
   {short:"ベレト",   name:"風花の紋章（ベレト）",        atk:0,  hit:30,  crit:10,  wt:2,  avo:10,  cavo:30},
   {short:"カムイ",   name:"選択の紋章（カムイ）",        atk:-2, hit:0,   crit:30,  wt:0,  avo:10,  cavo:30},
   {short:"エイリーク",name:"聖魔の紋章（エイリーク）",   atk:0,  hit:40,  crit:20,  wt:0,  avo:-20, cavo:-20},
-  {short:"？？？",   name:"絆炎の紋章（？？？）",        atk:-1, hit:20,  crit:20,  wt:-1, avo:20,  cavo:20},
+  {short:"リュール",   name:"絆炎の紋章（リュール）",        atk:-1, hit:20,  crit:20,  wt:-1, avo:20,  cavo:20},
   {short:"エーデルガルト",name:"三鼎の紋章（エーデルガルト）",atk:1,hit:10,crit:10,wt:1,avo:10,cavo:0},
   {short:"チキ",    name:"竜姫の紋章（チキ）",           atk:2,  hit:0,   crit:0,   wt:0,  avo:-20, cavo:-20},
   {short:"ヘクトル",  name:"天雷の紋章（ヘクトル）",      atk:3,  hit:0,   crit:0,   wt:3,  avo:-30, cavo:-30},
